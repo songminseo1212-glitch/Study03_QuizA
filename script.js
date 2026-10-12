@@ -282,6 +282,23 @@ function goNext() {
   }
 }
 
+function renderResult() {
+  const mode = MODES[state.mode];
+  $("result-title").textContent = categoryName(state.categoryId) + " · " + mode.name;
+  $("result-score").textContent = formatScore(totalScore(state)) + " / " + state.items.length;
+  $("result-count").textContent = state.items.length + "문항 중 " + correctCount(state) + "개 맞힘";
+  $("result-note").textContent = mode.ranked ? "" : "순위표에 기록되지 않음";
+}
+
+function playAgain() {
+  startPlay(state.mode, state.categoryId);
+}
+
+function goHome() {
+  state = null;
+  renderCategory();
+}
+
 function quit() {
   if (confirm("그만두면 이 판은 기록되지 않습니다. 그만둘까요?")) {
     state = null;
@@ -295,6 +312,8 @@ function init() {
   }
   $("btn-next").addEventListener("click", goNext);
   $("btn-quit").addEventListener("click", quit);
+  $("btn-again").addEventListener("click", playAgain);
+  $("btn-home").addEventListener("click", goHome);
   renderCategory();
 }
 

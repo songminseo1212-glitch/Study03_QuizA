@@ -158,3 +158,27 @@ button.secondary {
 .quiz-actions button {
   flex: 1;
 }
+
+.result-score {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 8px 0;
+}
+
+@media (max-width: 400px) {
+  .app {
+    padding: 12px;
+  }
+
+  .app-title {
+    font-size: 1.3rem;
+  }
+
+  .question {
+    font-size: 1.05rem;
+  }
+
+  button {
+    padding: 10px 12px;
+  }
+}
