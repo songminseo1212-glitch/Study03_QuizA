@@ -29,6 +29,13 @@ body {
   padding: 16px;
 }
 
+.student {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .app-title {
   margin: 8px 0 16px;
   font-size: 1.5rem;
