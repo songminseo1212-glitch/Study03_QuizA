@@ -238,6 +238,27 @@ function nextQuestion(state) {
   return state.index >= state.items.length;
 }
 
+function wrongItems(state) {
+  return state.items.filter((_, i) => !(state.results[i] && state.results[i].correct));
+}
+
+// 틀린 문항만 순서와 보기를 다시 섞어 연습 규칙으로 푸는 새 판. 원래 판은 바꾸지 않는다.
+function startRetry(state, random) {
+  const ids = wrongItems(state).map((it) => it.id);
+  if (ids.length === 0) return null;
+  const questions = QUESTIONS.filter((q) => ids.includes(q.id));
+  return {
+    mode: "practice",
+    categoryId: state.categoryId,
+    items: buildRound(questions, random),
+    index: 0,
+    results: [],
+    isRetry: true,
+    removed: [],
+    hintUsedAt: null,
+  };
+}
+
 function totalScore(state) {
   return state.results.reduce((sum, r) => sum + (r ? r.points : 0), 0);
 }
@@ -353,7 +374,7 @@ function renderQuiz() {
 
   $("quiz-meta").textContent = categoryName(state.categoryId) + " · " + MODES[state.mode].name;
   $("quiz-progress").textContent = state.index + 1 + " / " + state.items.length;
-  $("quiz-score").textContent = "점수 " + formatScore(totalScore(state));
+  $("quiz-score").textContent = state.isRetry ? "다시 풀기" : "점수 " + formatScore(totalScore(state));
   $("quiz-question").textContent = item.question;
 
   const list = $("quiz-choices");
@@ -445,10 +466,33 @@ function goNext() {
 
 function renderResult() {
   const mode = MODES[state.mode];
-  $("result-title").textContent = categoryName(state.categoryId) + " · " + mode.name;
-  $("result-score").textContent = formatScore(totalScore(state)) + " / " + state.items.length;
-  $("result-count").textContent = state.items.length + "문항 중 " + correctCount(state) + "개 맞힘";
+  const counted = state.items.length + "문항 중 " + correctCount(state) + "개 맞힘";
+  const wrongCount = wrongItems(state).length;
+
+  if (state.isRetry) {
+    // 다시 풀기 판은 점수를 매기지 않는다(PRD 3.7.5).
+    $("result-title").textContent = categoryName(state.categoryId) + " · 틀린 문제 다시 풀기";
+    $("result-score").textContent = counted;
+    $("result-count").textContent = "처음 판의 점수는 바뀌지 않습니다.";
+  } else {
+    $("result-title").textContent = categoryName(state.categoryId) + " · " + mode.name;
+    $("result-score").textContent = formatScore(totalScore(state)) + " / " + state.items.length;
+    $("result-count").textContent = counted;
+  }
+
+  const allCorrectInRetry = state.isRetry && wrongCount === 0;
+  $("result-message").hidden = !allCorrectInRetry;
+  $("result-message").textContent = allCorrectInRetry ? "모두 맞혔습니다" : "";
+  $("btn-retry").hidden = !(mode.retry && wrongCount > 0);
   $("result-note").textContent = mode.ranked ? "" : "순위표에 기록되지 않음";
+}
+
+function playRetry() {
+  const next = startRetry(state, Math.random);
+  if (!next) return;
+  state = next;
+  showQuestion();
+  showScreen("screen-quiz");
 }
 
 function playAgain() {
@@ -481,6 +525,7 @@ function init() {
   $("btn-home").addEventListener("click", goHome);
   $("btn-mode-back").addEventListener("click", renderCategory);
   $("btn-hint").addEventListener("click", takeHint);
+  $("btn-retry").addEventListener("click", playRetry);
   renderCategory();
 }
 
@@ -619,6 +664,33 @@ check("힌트 모드 점수와 사용 제한", () => {
 
 check("연습 모드에서는 힌트를 쓸 수 없다", () => {
   assertEqual(useHint(startGame("practice", "science", seededRandom(1)), seededRandom(1)), null, "연습");
+});
+
+check("다시 풀기는 틀린 문항만, 처음 점수는 그대로", () => {
+  const s = startGame("practice", "world-geography", seededRandom(6));
+  for (let i = 0; i < 10; i++) {
+    const it = s.items[s.index];
+    answerCurrent(s, i < 6 ? it.answer : (it.answer + 1) % 4);
+    nextQuestion(s);
+  }
+  const r = startRetry(s, seededRandom(8));
+  assertEqual(r.items.map((x) => x.id).sort(), wrongItems(s).map((x) => x.id).sort(), "문항");
+  assertEqual(r.isRetry, true, "다시 풀기 표시");
+  for (const it of r.items) {
+    const orig = QUESTIONS.find((q) => q.id === it.id);
+    assertEqual(it.choices[it.answer], orig.choices[orig.answer], it.id);
+  }
+  answerCurrent(r, r.items[0].answer);
+  assertEqual(totalScore(s), 6, "처음 점수");
+});
+
+check("틀린 문항이 없으면 다시 풀기 없음", () => {
+  const s = startGame("practice", "science", seededRandom(1));
+  for (let i = 0; i < 10; i++) {
+    answerCurrent(s, s.items[s.index].answer);
+    nextQuestion(s);
+  }
+  assertEqual(startRetry(s, seededRandom(1)), null, "다시 풀기");
 });
 
 // ⑦ 브라우저 시작 -----------------------------------------------------------
