@@ -165,10 +165,137 @@ function correctCount(state) {
 
 // ⑤ 렌더와 이벤트 -----------------------------------------------------------
 
+let state = null;
+
+function $(id) {
+  return document.getElementById(id);
+}
+
+function categoryName(categoryId) {
+  const c = CATEGORIES.find((cat) => cat.id === categoryId);
+  return c ? c.name : categoryId;
+}
+
+function showScreen(id) {
+  for (const section of document.querySelectorAll(".screen")) {
+    section.hidden = section.id !== id;
+  }
+  window.scrollTo(0, 0);
+}
+
+function renderCategory() {
+  $("category-notice").textContent = "연습 모드 · 순위표에 기록되지 않음";
+  const list = $("category-list");
+  list.replaceChildren();
+  for (const c of CATEGORIES) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = c.name;
+    button.addEventListener("click", () => startPlay("practice", c.id));
+    list.appendChild(button);
+  }
+  showScreen("screen-category");
+}
+
+function startPlay(modeKey, categoryId) {
+  state = startGame(modeKey, categoryId, Math.random);
+  renderQuiz();
+  showScreen("screen-quiz");
+}
+
+function renderQuiz() {
+  const item = state.items[state.index];
+  const result = state.results[state.index];
+  const isLast = state.index === state.items.length - 1;
+
+  $("quiz-meta").textContent = categoryName(state.categoryId) + " · " + MODES[state.mode].name;
+  $("quiz-progress").textContent = state.index + 1 + " / " + state.items.length;
+  $("quiz-score").textContent = "점수 " + formatScore(totalScore(state));
+  $("quiz-question").textContent = item.question;
+
+  const list = $("quiz-choices");
+  list.replaceChildren();
+  item.choices.forEach((text, i) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "choice";
+    button.dataset.index = String(i);
+    button.textContent = text;
+    if (result) {
+      button.disabled = true;
+      if (i === item.answer) {
+        button.classList.add("correct");
+        button.append(tag("정답"));
+      } else if (i === result.choice) {
+        button.classList.add("wrong");
+        button.append(tag("선택"));
+      }
+    } else {
+      button.addEventListener("click", () => chooseAnswer(i));
+    }
+    list.appendChild(button);
+  });
+
+  $("quiz-feedback").hidden = !result;
+  $("btn-next").hidden = !result;
+  if (result) {
+    const verdict = result.timedOut ? "시간 초과" : result.correct ? "정답!" : "오답";
+    $("feedback-verdict").textContent = verdict;
+    $("feedback-verdict").className = "verdict " + (result.correct ? "is-correct" : "is-wrong");
+    $("feedback-explanation").textContent = item.explanation;
+    renderSources(item.sources);
+    $("btn-next").textContent = isLast ? "결과 보기" : "다음";
+  }
+}
+
+function tag(text) {
+  const span = document.createElement("span");
+  span.className = "tag";
+  span.textContent = text;
+  return span;
+}
+
+function renderSources(sources) {
+  const p = $("feedback-source");
+  p.replaceChildren("출처: ");
+  sources.forEach((s, i) => {
+    if (i > 0) p.append(", ");
+    const a = document.createElement("a");
+    a.href = s.url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = s.title;
+    p.append(a);
+  });
+}
+
+function chooseAnswer(choiceIndex) {
+  if (answerCurrent(state, choiceIndex)) renderQuiz();
+}
+
+function goNext() {
+  if (nextQuestion(state)) {
+    renderResult();
+    showScreen("screen-result");
+  } else {
+    renderQuiz();
+  }
+}
+
+function quit() {
+  if (confirm("그만두면 이 판은 기록되지 않습니다. 그만둘까요?")) {
+    state = null;
+    renderCategory();
+  }
+}
+
 function init() {
   for (const problem of validateQuestions(CATEGORIES, QUESTIONS)) {
     console.error("문항 데이터 문제 - " + problem);
   }
+  $("btn-next").addEventListener("click", goNext);
+  $("btn-quit").addEventListener("click", quit);
+  renderCategory();
 }
 
 // ⑥ 점검 목록 -------------------------------------------------------------

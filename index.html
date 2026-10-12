@@ -15,9 +15,35 @@
       <div id="category-list" class="button-list"></div>
     </section>
 
-    <section id="screen-quiz" class="screen" hidden></section>
+    <section id="screen-quiz" class="screen" hidden>
+      <div class="quiz-header">
+        <span id="quiz-meta"></span>
+        <span id="quiz-progress"></span>
+        <span id="quiz-score"></span>
+      </div>
+      <p id="quiz-question" class="question"></p>
+      <div id="quiz-choices" class="button-list"></div>
+      <div id="quiz-feedback" class="feedback" hidden>
+        <p id="feedback-verdict" class="verdict"></p>
+        <p id="feedback-explanation"></p>
+        <p id="feedback-source" class="source"></p>
+      </div>
+      <div class="quiz-actions">
+        <button id="btn-next" type="button" class="primary" hidden>다음</button>
+        <button id="btn-quit" type="button" class="secondary">그만두기</button>
+      </div>
+    </section>
 
-    <section id="screen-result" class="screen" hidden></section>
+    <section id="screen-result" class="screen" hidden>
+      <h2 id="result-title"></h2>
+      <p id="result-score" class="result-score"></p>
+      <p id="result-count"></p>
+      <p id="result-note" class="notice"></p>
+      <div class="button-list">
+        <button id="btn-again" type="button" class="primary">같은 카테고리 다시</button>
+        <button id="btn-home" type="button" class="secondary">처음으로</button>
+      </div>
+    </section>
   </main>
 
   <script src="questions.js"></script>

@@ -57,3 +57,104 @@ button {
 button:disabled {
   cursor: default;
 }
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  text-align: center;
+}
+
+button.secondary {
+  text-align: center;
+}
+
+.quiz-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.question {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+}
+
+.choice {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.choice.correct {
+  background: var(--correct-bg);
+  border-color: var(--correct);
+  color: var(--correct);
+  font-weight: 600;
+}
+
+.choice.wrong {
+  background: var(--wrong-bg);
+  border-color: var(--wrong);
+  color: var(--wrong);
+  font-weight: 600;
+}
+
+.tag {
+  flex: none;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+
+.feedback {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.feedback p {
+  margin: 4px 0;
+}
+
+.verdict {
+  font-weight: 700;
+}
+
+.verdict.is-correct {
+  color: var(--correct);
+}
+
+.verdict.is-wrong {
+  color: var(--wrong);
+}
+
+.source {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.source a {
+  color: var(--accent);
+}
+
+.quiz-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.quiz-actions button {
+  flex: 1;
+}
