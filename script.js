@@ -35,7 +35,12 @@ function runSelfTests() {
 
 // 모드별 차이는 이 표에서만 읽는다(PRD 5.2).
 const MODES = {
-  practice: { name: "연습", timeLimit: null, hint: false, correctPoint: 1, hintPoint: null, ranked: false, retry: true },
+  practice: { name: "연습",   timeLimit: null, hint: false, correctPoint: 1, hintPoint: null, ranked: false, retry: true,
+              rule: "시간 제한과 힌트 없음, 맞히면 1점, 틀린 문제만 다시 풀 수 있음" },
+  speed:    { name: "스피드", timeLimit: 15,   hint: false, correctPoint: 1, hintPoint: null, ranked: true,  retry: false,
+              rule: "문항마다 15초, 시간이 지나면 오답, 맞히면 1점" },
+  hint:     { name: "힌트",   timeLimit: null, hint: true,  correctPoint: 1, hintPoint: 0.5,  ranked: true,  retry: false,
+              rule: "문항마다 힌트 1번(오답 2개 지우기), 힌트를 쓰고 맞히면 0.5점" },
 };
 
 // 같은 seed면 같은 수열을 내는 [0, 1) 난수(mulberry32). 점검에서 결과를 고정할 때 쓴다.
@@ -184,17 +189,42 @@ function showScreen(id) {
 }
 
 function renderCategory() {
-  $("category-notice").textContent = "연습 모드 · 순위표에 기록되지 않음";
   const list = $("category-list");
   list.replaceChildren();
   for (const c of CATEGORIES) {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = c.name;
-    button.addEventListener("click", () => startPlay("practice", c.id));
+    button.addEventListener("click", () => renderMode(c.id));
     list.appendChild(button);
   }
   showScreen("screen-category");
+}
+
+function renderMode(categoryId) {
+  $("mode-title").textContent = categoryName(categoryId) + " · 모드를 고르세요";
+  const list = $("mode-list");
+  list.replaceChildren();
+  for (const [key, mode] of Object.entries(MODES)) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "mode-card";
+    const name = document.createElement("strong");
+    name.textContent = mode.name;
+    const rule = document.createElement("span");
+    rule.className = "mode-rule";
+    rule.textContent = mode.rule;
+    button.append(name, rule);
+    if (!mode.ranked) {
+      const note = document.createElement("span");
+      note.className = "mode-note";
+      note.textContent = "순위표에 기록되지 않음";
+      button.append(note);
+    }
+    button.addEventListener("click", () => startPlay(key, categoryId));
+    list.appendChild(button);
+  }
+  showScreen("screen-mode");
 }
 
 function startPlay(modeKey, categoryId) {
@@ -314,6 +344,7 @@ function init() {
   $("btn-quit").addEventListener("click", quit);
   $("btn-again").addEventListener("click", playAgain);
   $("btn-home").addEventListener("click", goHome);
+  $("btn-mode-back").addEventListener("click", renderCategory);
   renderCategory();
 }
 
@@ -390,6 +421,14 @@ check("10문항 뒤에 판이 끝난다", () => {
   assertEqual(finished, true, "끝남");
   assertEqual(totalScore(s), 7, "점수");
   assertEqual(correctCount(s), 7, "맞힌 수");
+});
+
+check("scoreAnswer 모드별 점수", () => {
+  assertEqual(scoreAnswer("speed", true, false), 1, "스피드 정답");
+  assertEqual(scoreAnswer("speed", false, false), 0, "스피드 오답");
+  assertEqual(scoreAnswer("hint", true, false), 1, "힌트 안 쓰고 정답");
+  assertEqual(scoreAnswer("hint", true, true), 0.5, "힌트 쓰고 정답");
+  assertEqual(scoreAnswer("hint", false, true), 0, "힌트 쓰고 오답");
 });
 
 // ⑦ 브라우저 시작 -----------------------------------------------------------

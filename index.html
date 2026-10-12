@@ -12,8 +12,16 @@
     <h1 class="app-title">상식 퀴즈</h1>
 
     <section id="screen-category" class="screen">
-      <p id="category-notice" class="notice"></p>
+      <p class="notice">카테고리를 고르세요</p>
       <div id="category-list" class="button-list"></div>
+    </section>
+
+    <section id="screen-mode" class="screen" hidden>
+      <h2 id="mode-title"></h2>
+      <div id="mode-list" class="button-list"></div>
+      <div class="quiz-actions">
+        <button id="btn-mode-back" type="button" class="secondary">뒤로</button>
+      </div>
     </section>
 
     <section id="screen-quiz" class="screen" hidden>
