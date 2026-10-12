@@ -123,6 +123,17 @@ button.secondary {
   font-weight: 600;
 }
 
+.choice.removed {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.hint-button {
+  margin-top: 8px;
+  width: 100%;
+  text-align: center;
+}
+
 .tag {
   flex: none;
   font-size: 0.8rem;

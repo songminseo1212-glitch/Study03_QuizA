@@ -193,15 +193,33 @@ function startGame(modeKey, categoryId, random) {
     results: [],
     isRetry: false,
     removed: [],
+    hintUsedAt: null,
   };
 }
 
-// choiceIndex가 null이면 시간 초과다. 이미 답한 문항이면 null을 돌려주고 아무것도 바꾸지 않는다.
+// 정답이 아닌 보기 3개 중 2개의 위치를 고른다.
+function pickHintRemovals(item, random) {
+  const wrong = [0, 1, 2, 3].filter((i) => i !== item.answer);
+  return shuffle(wrong, random).slice(0, 2);
+}
+
+// 힌트를 쓸 수 없으면(힌트 없는 모드, 이미 씀, 이미 답함) null을 돌려준다.
+function useHint(state, random) {
+  if (!MODES[state.mode].hint) return null;
+  if (state.hintUsedAt === state.index || state.results[state.index]) return null;
+  state.removed = pickHintRemovals(state.items[state.index], random);
+  state.hintUsedAt = state.index;
+  return state.removed;
+}
+
+// choiceIndex가 null이면 시간 초과다. 이미 답한 문항이거나 힌트로 지운 보기면
+// null을 돌려주고 아무것도 바꾸지 않는다.
 function answerCurrent(state, choiceIndex) {
   if (state.results[state.index]) return null;
+  if (choiceIndex !== null && state.removed.includes(choiceIndex)) return null;
   const item = state.items[state.index];
   const correct = choiceIndex === item.answer;
-  const usedHint = false;
+  const usedHint = state.hintUsedAt === state.index;
   const result = {
     choice: choiceIndex,
     correct,
@@ -346,6 +364,8 @@ function renderQuiz() {
     button.className = "choice";
     button.dataset.index = String(i);
     button.textContent = text;
+    const removed = state.removed.includes(i);
+    if (removed) button.classList.add("removed");
     if (result) {
       button.disabled = true;
       if (i === item.answer) {
@@ -355,11 +375,19 @@ function renderQuiz() {
         button.classList.add("wrong");
         button.append(tag("선택"));
       }
+    } else if (removed) {
+      button.disabled = true;
     } else {
       button.addEventListener("click", () => chooseAnswer(i));
     }
     list.appendChild(button);
   });
+
+  const hintButton = $("btn-hint");
+  hintButton.hidden = !MODES[state.mode].hint;
+  const hintUsed = state.hintUsedAt === state.index;
+  hintButton.textContent = hintUsed ? "힌트 사용함" : "힌트 (오답 2개 지우기)";
+  hintButton.disabled = hintUsed || Boolean(result);
 
   $("quiz-feedback").hidden = !result;
   $("btn-next").hidden = !result;
@@ -399,6 +427,10 @@ function chooseAnswer(choiceIndex) {
     stopTimer();
     renderQuiz();
   }
+}
+
+function takeHint() {
+  if (useHint(state, Math.random)) renderQuiz();
 }
 
 function goNext() {
@@ -448,6 +480,7 @@ function init() {
   $("btn-again").addEventListener("click", playAgain);
   $("btn-home").addEventListener("click", goHome);
   $("btn-mode-back").addEventListener("click", renderCategory);
+  $("btn-hint").addEventListener("click", takeHint);
   renderCategory();
 }
 
@@ -562,6 +595,30 @@ check("시간 초과는 0점 오답이고, 그 뒤 답은 무시된다", () => {
   const r = answerCurrent(s, null);
   assertEqual([r.correct, r.points, r.timedOut], [false, 0, true], "시간 초과");
   assertEqual(answerCurrent(s, s.items[0].answer), null, "늦은 답");
+});
+
+check("힌트는 오답 2개만 지운다", () => {
+  const it = { choices: ["a", "b", "c", "d"], answer: 2 };
+  for (let seed = 1; seed <= 50; seed++) {
+    const r = pickHintRemovals(it, seededRandom(seed));
+    assertEqual(r.length, 2, "개수");
+    if (r.includes(2) || r[0] === r[1]) throw new Error("seed " + seed + ": " + r);
+  }
+});
+
+check("힌트 모드 점수와 사용 제한", () => {
+  const s = startGame("hint", "arts-culture", seededRandom(4));
+  const removed = useHint(s, seededRandom(1));
+  assertEqual(removed.length, 2, "지운 수");
+  assertEqual(useHint(s, seededRandom(1)), null, "두 번째 힌트");
+  assertEqual(answerCurrent(s, removed[0]), null, "지운 보기 선택");
+  assertEqual(answerCurrent(s, s.items[0].answer).points, 0.5, "힌트 쓰고 정답");
+  nextQuestion(s);
+  assertEqual(answerCurrent(s, s.items[1].answer).points, 1, "힌트 없이 정답");
+});
+
+check("연습 모드에서는 힌트를 쓸 수 없다", () => {
+  assertEqual(useHint(startGame("practice", "science", seededRandom(1)), seededRandom(1)), null, "연습");
 });
 
 // ⑦ 브라우저 시작 -----------------------------------------------------------
