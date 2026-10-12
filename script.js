@@ -101,6 +101,68 @@ function validateQuestions(categories, questions) {
   return problems;
 }
 
+// ③ 게임 상태 ---------------------------------------------------------------
+
+// 문항 순서와 보기 순서를 섞는다. 정답 위치(answer)도 섞인 보기를 따라간다.
+function buildRound(questions, random) {
+  return shuffle(questions, random).map((q) => {
+    const order = shuffle([0, 1, 2, 3], random);
+    return {
+      id: q.id,
+      question: q.question,
+      choices: order.map((i) => q.choices[i]),
+      answer: order.indexOf(q.answer),
+      explanation: q.explanation,
+      sources: q.sources,
+    };
+  });
+}
+
+function startGame(modeKey, categoryId, random) {
+  const questions = QUESTIONS.filter((q) => q.category === categoryId);
+  return {
+    mode: modeKey,
+    categoryId,
+    items: buildRound(questions, random),
+    index: 0,
+    results: [],
+    isRetry: false,
+    removed: [],
+  };
+}
+
+// choiceIndex가 null이면 시간 초과다. 이미 답한 문항이면 null을 돌려주고 아무것도 바꾸지 않는다.
+function answerCurrent(state, choiceIndex) {
+  if (state.results[state.index]) return null;
+  const item = state.items[state.index];
+  const correct = choiceIndex === item.answer;
+  const usedHint = false;
+  const result = {
+    choice: choiceIndex,
+    correct,
+    usedHint,
+    points: scoreAnswer(state.mode, correct, usedHint),
+    timedOut: choiceIndex === null,
+  };
+  state.results[state.index] = result;
+  return result;
+}
+
+// 다음 문항으로 넘어간다. 판이 끝났으면 true를 돌려준다.
+function nextQuestion(state) {
+  state.index++;
+  state.removed = [];
+  return state.index >= state.items.length;
+}
+
+function totalScore(state) {
+  return state.results.reduce((sum, r) => sum + (r ? r.points : 0), 0);
+}
+
+function correctCount(state) {
+  return state.results.filter((r) => r && r.correct).length;
+}
+
 // ⑤ 렌더와 이벤트 -----------------------------------------------------------
 
 function init() {
@@ -149,6 +211,39 @@ check("망가뜨린 데이터에서 문제를 찾는다", () => {
   q.pop();                                   // 한 카테고리 9문항
   const problems = validateQuestions(CATEGORIES, q);
   if (problems.length < 6) throw new Error("찾은 문제 " + problems.length + "개");
+});
+
+check("buildRound는 정답 보기를 따라 옮긴다", () => {
+  const src = QUESTIONS.filter((q) => q.category === "science");
+  const items = buildRound(src, seededRandom(3));
+  assertEqual(items.length, 10, "문항 수");
+  for (const it of items) {
+    const orig = src.find((q) => q.id === it.id);
+    assertEqual(it.choices[it.answer], orig.choices[orig.answer], it.id);
+    assertEqual([...it.choices].sort(), [...orig.choices].sort(), it.id + " 보기");
+  }
+});
+
+check("같은 문항은 한 번만 채점된다", () => {
+  const s = startGame("practice", "science", seededRandom(5));
+  const a = s.items[0].answer;
+  assertEqual(answerCurrent(s, a).points, 1, "첫 답");
+  assertEqual(answerCurrent(s, a), null, "두 번째 답");
+  assertEqual(answerCurrent(s, null), null, "답한 뒤 시간 초과");
+  assertEqual(totalScore(s), 1, "점수");
+});
+
+check("10문항 뒤에 판이 끝난다", () => {
+  const s = startGame("practice", "korean-history", seededRandom(9));
+  let finished = false;
+  for (let i = 0; i < 10; i++) {
+    const it = s.items[s.index];
+    answerCurrent(s, i < 7 ? it.answer : (it.answer + 1) % 4);
+    finished = nextQuestion(s);
+  }
+  assertEqual(finished, true, "끝남");
+  assertEqual(totalScore(s), 7, "점수");
+  assertEqual(correctCount(s), 7, "맞힌 수");
 });
 
 // ⑦ 브라우저 시작 -----------------------------------------------------------
