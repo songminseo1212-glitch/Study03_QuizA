@@ -74,6 +74,66 @@ function scoreAnswer(modeKey, isCorrect, usedHint) {
   return usedHint && mode.hint ? mode.hintPoint : mode.correctPoint;
 }
 
+// 스피드 모드 타이머. 남은 시간은 마감 시각 기준으로 계산해 화면 갱신이 밀려도 어긋나지 않는다.
+function remainingSeconds(deadlineMs, nowMs) {
+  return Math.max(0, Math.ceil((deadlineMs - nowMs) / 1000));
+}
+
+// 시계 함수를 주입받아 점검에서 가짜 시계를 쓸 수 있게 한다. start는 항상 이전 타이머를 먼저 지운다.
+function createTimer({ setInterval, clearInterval, now, onTick, onTimeout }) {
+  let handle = null;
+  let deadline = 0;
+  let pausedMs = null;
+
+  function clear() {
+    if (handle !== null) {
+      clearInterval(handle);
+      handle = null;
+    }
+  }
+
+  function tick() {
+    const left = remainingSeconds(deadline, now());
+    onTick(left);
+    if (left <= 0) {
+      clear();
+      onTimeout();
+    }
+  }
+
+  function run() {
+    clear();
+    handle = setInterval(tick, 250);
+  }
+
+  return {
+    start(seconds) {
+      pausedMs = null;
+      deadline = now() + seconds * 1000;
+      run();
+      onTick(seconds);
+    },
+    stop() {
+      clear();
+      pausedMs = null;
+    },
+    pause() {
+      if (handle === null) return;
+      pausedMs = Math.max(0, deadline - now());
+      clear();
+    },
+    resume() {
+      if (pausedMs === null) return;
+      deadline = now() + pausedMs;
+      pausedMs = null;
+      run();
+    },
+    isRunning() {
+      return handle !== null;
+    },
+  };
+}
+
 // 문항 데이터 점검(PRD 4.4). 문제 하나마다 "<id>: <이유>" 한 줄을 돌려준다.
 function validateQuestions(categories, questions) {
   const problems = [];
@@ -227,9 +287,44 @@ function renderMode(categoryId) {
   showScreen("screen-mode");
 }
 
+let timer = null;
+
+function getTimer() {
+  if (!timer) {
+    timer = createTimer({
+      setInterval: window.setInterval.bind(window),
+      clearInterval: window.clearInterval.bind(window),
+      now: Date.now,
+      onTick: renderTimer,
+      onTimeout: () => {
+        if (answerCurrent(state, null)) renderQuiz();
+      },
+    });
+  }
+  return timer;
+}
+
+function renderTimer(seconds) {
+  const el = $("quiz-timer");
+  el.textContent = "남은 시간 " + seconds + "초";
+  el.classList.toggle("low", seconds <= 5);
+}
+
+// 새 문항을 보여 주고, 스피드 모드면 15초부터 센다.
+function showQuestion() {
+  renderQuiz();
+  const limit = MODES[state.mode].timeLimit;
+  $("quiz-timer").hidden = limit === null;
+  if (limit !== null) getTimer().start(limit);
+}
+
+function stopTimer() {
+  if (timer) timer.stop();
+}
+
 function startPlay(modeKey, categoryId) {
   state = startGame(modeKey, categoryId, Math.random);
-  renderQuiz();
+  showQuestion();
   showScreen("screen-quiz");
 }
 
@@ -300,15 +395,19 @@ function renderSources(sources) {
 }
 
 function chooseAnswer(choiceIndex) {
-  if (answerCurrent(state, choiceIndex)) renderQuiz();
+  if (answerCurrent(state, choiceIndex)) {
+    stopTimer();
+    renderQuiz();
+  }
 }
 
 function goNext() {
+  stopTimer();
   if (nextQuestion(state)) {
     renderResult();
     showScreen("screen-result");
   } else {
-    renderQuiz();
+    showQuestion();
   }
 }
 
@@ -325,14 +424,18 @@ function playAgain() {
 }
 
 function goHome() {
+  stopTimer();
   state = null;
   renderCategory();
 }
 
+// 확인 창이 떠 있는 동안 스피드 모드 타이머를 멈춘다(PRD 3.4).
 function quit() {
+  if (timer) timer.pause();
   if (confirm("그만두면 이 판은 기록되지 않습니다. 그만둘까요?")) {
-    state = null;
-    renderCategory();
+    goHome();
+  } else if (timer) {
+    timer.resume();
   }
 }
 
@@ -429,6 +532,36 @@ check("scoreAnswer 모드별 점수", () => {
   assertEqual(scoreAnswer("hint", true, false), 1, "힌트 안 쓰고 정답");
   assertEqual(scoreAnswer("hint", true, true), 0.5, "힌트 쓰고 정답");
   assertEqual(scoreAnswer("hint", false, true), 0, "힌트 쓰고 오답");
+});
+
+check("remainingSeconds", () => {
+  assertEqual(remainingSeconds(15000, 0), 15, "시작");
+  assertEqual(remainingSeconds(15000, 14001), 1, "1초 남음");
+  assertEqual(remainingSeconds(15000, 15000), 0, "0초");
+  assertEqual(remainingSeconds(15000, 20000), 0, "지남");
+});
+
+check("타이머는 하나만 돈다", () => {
+  let active = 0;
+  let nextId = 1;
+  const t = createTimer({
+    setInterval: () => { active++; return nextId++; },
+    clearInterval: () => { active--; },
+    now: () => 0,
+    onTick: () => {},
+    onTimeout: () => {},
+  });
+  t.start(15); t.start(15); t.start(15);
+  assertEqual(active, 1, "start 세 번");
+  t.stop();
+  assertEqual(active, 0, "stop 뒤");
+});
+
+check("시간 초과는 0점 오답이고, 그 뒤 답은 무시된다", () => {
+  const s = startGame("speed", "science", seededRandom(2));
+  const r = answerCurrent(s, null);
+  assertEqual([r.correct, r.points, r.timedOut], [false, 0, true], "시간 초과");
+  assertEqual(answerCurrent(s, s.items[0].answer), null, "늦은 답");
 });
 
 // ⑦ 브라우저 시작 -----------------------------------------------------------

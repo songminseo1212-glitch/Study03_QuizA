@@ -85,6 +85,15 @@ button.secondary {
   font-size: 0.95rem;
 }
 
+.timer {
+  margin: 8px 0 0;
+  font-weight: 700;
+}
+
+.timer.low {
+  color: var(--wrong);
+}
+
 .question {
   font-size: 1.15rem;
   font-weight: 600;
