@@ -56,8 +56,11 @@ const QUESTIONS = [
     choices: ["이순신", "권율", "김시민", "곽재우"],
     answer: 0,
     explanation: "한산도 대첩에서 이순신은 모든 전선이 학익진을 짜서 공격하게 하였다.",
-    sources: [{ title: "한산도대첩 - 한국민족문화대백과사전", url: "https://encykorea.aks.ac.kr/Article/E0061676" }],
-    checkedAt: "2026-10-12",
+    sources: [
+      { title: "한산도대첩 - 한국민족문화대백과사전", url: "https://encykorea.aks.ac.kr/Article/E0061676" },
+      { title: "한산도 해전 - 우리역사넷", url: "https://contents.history.go.kr/mobile/kc/view.do?levelId=kc_i306000&code=kc_age_30" },
+    ],
+    checkedAt: "2026-10-15",
   },
   {
     id: "kh-06",
