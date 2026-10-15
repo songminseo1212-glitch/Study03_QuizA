@@ -159,10 +159,14 @@ function validateQuestions(categories, questions) {
     }
   }
 
-  for (const c of categories) {
-    const count = questions.filter((q) => q.category === c.id).length;
-    if (count !== 10) problems.push(c.id + ": 문항이 " + count + "개임(10개여야 함)");
-  }
+  // 카테고리마다 문항 수가 같아야 한다. 가장 많은 카테고리보다 적은 카테고리를 알린다.
+  const counts = categories.map((c) => questions.filter((q) => q.category === c.id).length);
+  const most = Math.max(...counts);
+  categories.forEach((c, i) => {
+    if (counts[i] !== most) {
+      problems.push(c.id + ": 문항이 " + counts[i] + "개임(카테고리마다 같아야 함, 가장 많은 카테고리는 " + most + "개)");
+    }
+  });
   return problems;
 }
 
@@ -566,7 +570,7 @@ check("망가뜨린 데이터에서 문제를 찾는다", () => {
   q[2].id = q[3].id;                         // id 중복
   q[4].sources = [];                         // 출처 없음
   q[5].choices[1] = q[5].choices[0];         // 보기 중복
-  q.pop();                                   // 한 카테고리 9문항
+  q.pop();                                   // 한 카테고리만 문항이 하나 적음
   const problems = validateQuestions(CATEGORIES, q);
   if (problems.length < 6) throw new Error("찾은 문제 " + problems.length + "개");
 });
@@ -574,7 +578,7 @@ check("망가뜨린 데이터에서 문제를 찾는다", () => {
 check("buildRound는 정답 보기를 따라 옮긴다", () => {
   const src = QUESTIONS.filter((q) => q.category === "science");
   const items = buildRound(src, seededRandom(3));
-  assertEqual(items.length, 10, "문항 수");
+  assertEqual(items.length, src.length, "문항 수");
   for (const it of items) {
     const orig = src.find((q) => q.id === it.id);
     assertEqual(it.choices[it.answer], orig.choices[orig.answer], it.id);
@@ -591,17 +595,19 @@ check("같은 문항은 한 번만 채점된다", () => {
   assertEqual(totalScore(s), 1, "점수");
 });
 
-check("10문항 뒤에 판이 끝난다", () => {
+check("마지막 문항 뒤에 판이 끝난다", () => {
   const s = startGame("practice", "korean-history", seededRandom(9));
+  const n = s.items.length;
+  assertEqual(n, QUESTIONS.filter((q) => q.category === "korean-history").length, "한 판의 문항 수");
   let finished = false;
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < n; i++) {
     const it = s.items[s.index];
-    answerCurrent(s, i < 7 ? it.answer : (it.answer + 1) % 4);
+    answerCurrent(s, i < n - 3 ? it.answer : (it.answer + 1) % 4);
     finished = nextQuestion(s);
   }
   assertEqual(finished, true, "끝남");
-  assertEqual(totalScore(s), 7, "점수");
-  assertEqual(correctCount(s), 7, "맞힌 수");
+  assertEqual(totalScore(s), n - 3, "점수");
+  assertEqual(correctCount(s), n - 3, "맞힌 수");
 });
 
 check("scoreAnswer 모드별 점수", () => {
@@ -668,7 +674,7 @@ check("연습 모드에서는 힌트를 쓸 수 없다", () => {
 
 check("다시 풀기는 틀린 문항만, 처음 점수는 그대로", () => {
   const s = startGame("practice", "world-geography", seededRandom(6));
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < s.items.length; i++) {
     const it = s.items[s.index];
     answerCurrent(s, i < 6 ? it.answer : (it.answer + 1) % 4);
     nextQuestion(s);
@@ -686,7 +692,7 @@ check("다시 풀기는 틀린 문항만, 처음 점수는 그대로", () => {
 
 check("틀린 문항이 없으면 다시 풀기 없음", () => {
   const s = startGame("practice", "science", seededRandom(1));
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < s.items.length; i++) {
     answerCurrent(s, s.items[s.index].answer);
     nextQuestion(s);
   }
