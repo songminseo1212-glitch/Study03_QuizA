@@ -152,7 +152,7 @@ check("망가뜨린 데이터에서 문제를 찾는다", () => {
   q[2].id = q[3].id;                         // id 중복
   q[4].sources = [];                         // 출처 없음
   q[5].choices[1] = q[5].choices[0];         // 보기 중복
-  q.pop();                                   // 한 카테고리 9문항
+  q.pop();                                   // 한 카테고리만 문항이 하나 적음
   const problems = validateQuestions(CATEGORIES, q);
   if (problems.length < 6) throw new Error("찾은 문제 " + problems.length + "개");
 });
@@ -164,7 +164,7 @@ Expected: `validateQuestions`가 없거나 문항이 0개라서 실패한다.
 
 - [ ] **Step 3: `validateQuestions`를 구현한다**
 
-PRD 4.4의 여섯 가지(카테고리마다 10문항, id 유일·category 유효, 보기 4개·서로 다름, answer 0~3, explanation 비어 있지 않음, sources 1개 이상·각 title과 url)를 검사한다.
+PRD 4.4의 여섯 가지(카테고리마다 문항 수가 같음, id 유일·category 유효, 보기 4개·서로 다름, answer 0~3, explanation 비어 있지 않음, sources 1개 이상·각 title과 url)를 검사한다.
 
 - [ ] **Step 4: 문항 40개를 쓴다**
 
@@ -210,7 +210,7 @@ Expected: `자체 점검 결과: 통과 6, 실패 0`
 check("buildRound는 정답 보기를 따라 옮긴다", () => {
   const src = QUESTIONS.filter(q => q.category === "science");
   const items = buildRound(src, seededRandom(3));
-  assertEqual(items.length, 10, "문항 수");
+  assertEqual(items.length, src.length, "문항 수");
   for (const it of items) {
     const orig = src.find(q => q.id === it.id);
     assertEqual(it.choices[it.answer], orig.choices[orig.answer], it.id);
@@ -225,17 +225,19 @@ check("같은 문항은 한 번만 채점된다", () => {
   assertEqual(answerCurrent(s, null), null, "답한 뒤 시간 초과");
   assertEqual(totalScore(s), 1, "점수");
 });
-check("10문항 뒤에 판이 끝난다", () => {
+check("마지막 문항 뒤에 판이 끝난다", () => {
   const s = startGame("practice", "korean-history", seededRandom(9));
+  const n = s.items.length;
+  assertEqual(n, QUESTIONS.filter(q => q.category === "korean-history").length, "한 판의 문항 수");
   let finished = false;
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < n; i++) {
     const it = s.items[s.index];
-    answerCurrent(s, i < 7 ? it.answer : (it.answer + 1) % 4);
+    answerCurrent(s, i < n - 3 ? it.answer : (it.answer + 1) % 4);
     finished = nextQuestion(s);
   }
   assertEqual(finished, true, "끝남");
-  assertEqual(totalScore(s), 7, "점수");
-  assertEqual(correctCount(s), 7, "맞힌 수");
+  assertEqual(totalScore(s), n - 3, "점수");
+  assertEqual(correctCount(s), n - 3, "맞힌 수");
 });
 ```
 
@@ -263,7 +265,7 @@ check("10문항 뒤에 판이 끝난다", () => {
   - `#category-notice`에 "연습 모드 · 순위표에 기록되지 않음"을 표시한다.
   - 버튼을 누르면 `startGame("practice", id, Math.random)`을 실행하고 퀴즈 화면으로 간다.
 - [ ] **Step 2: 퀴즈 화면을 만든다**
-  - `#quiz-meta`에 "한국사 · 연습", `#quiz-progress`에 "1 / 10", `#quiz-score`에 "점수 0"을 표시한다.
+  - `#quiz-meta`에 "한국사 · 연습", `#quiz-progress`에 "1 / 10"(한 판이 10문항일 때), `#quiz-score`에 "점수 0"을 표시한다.
   - 보기를 누르면 `answerCurrent`를 실행한다. 그다음 보기를 모두 잠그고, 정답 보기에 `.correct`와 글자 "정답", 고른 오답에 `.wrong`과 글자 "선택"을 붙인다.
   - "정답!" 또는 "오답", 해설, "출처: 제목" 링크(`target="_blank" rel="noopener"`)를 보여 준다.
   - [다음]을 보여 주고, 마지막 문항이면 [결과 보기]로 바꾼다.
@@ -283,7 +285,7 @@ check("10문항 뒤에 판이 끝난다", () => {
 - Produces: `renderResult()`
 
 - [ ] **Step 1: 결과 화면을 만든다**
-  - 점수 "7.5 / 10" 꼴, "10문항 중 7개 맞힘", 카테고리와 모드를 보여 준다.
+  - 점수(한 판이 10문항이면 "7.5 / 10" 꼴), 맞힌 수(한 판이 10문항이면 "10문항 중 7개 맞힘"), 카테고리와 모드를 보여 준다.
   - `MODES[mode].ranked`가 false이면 `#result-note`에 "순위표에 기록되지 않음"을 표시한다.
   - [같은 카테고리 다시]는 같은 카테고리와 모드로 새 판을 시작한다. [처음으로]는 시작 화면으로 간다.
 - [ ] **Step 2: 휴대폰 화면을 맞춘다** — 폭 320px에서 가로 스크롤이 생기지 않게 한다. 보기 버튼은 한 줄에 하나씩 놓고 긴 낱말도 줄바꿈되게 한다.
@@ -301,13 +303,13 @@ check("10문항 뒤에 판이 끝난다", () => {
 ## 1단계: 브라우저에서 직접 확인할 항목 (사람)
 `index.html`을 탐색기에서 더블클릭해 연다.
 1. 시작 화면에 카테고리 버튼 4개와 "연습 모드 · 순위표에 기록되지 않음"이 보인다.
-2. [한국사]를 누르면 위쪽에 "한국사 · 연습", "1 / 10", "점수 0"이 보인다.
+2. [한국사]를 누르면 위쪽에 "한국사 · 연습", "1 / 10"(한 판이 10문항일 때), "점수 0"이 보인다.
 3. 정답을 고르면 그 보기가 초록색과 "정답"으로 바뀌고, 해설 한 줄과 출처 링크가 나온다.
 4. 오답을 고르면 고른 보기는 빨간색과 "선택", 정답 보기는 초록색으로 표시된다.
 5. 답을 고른 뒤에는 다른 보기를 눌러도 아무 변화가 없다.
 6. 출처 링크를 누르면 새 탭에서 출처가 열린다.
 7. 맞히면 점수가 1 오르고, 틀리면 그대로다.
-8. 10번째 문항에서는 [다음]이 [결과 보기]로 바뀐다.
+8. 마지막 문항(한 판이 10문항이면 10번째)에서는 [다음]이 [결과 보기]로 바뀐다.
 9. 결과 화면의 점수와 맞힌 수가 실제와 같고, "순위표에 기록되지 않음"이 보인다.
 10. [같은 카테고리 다시]를 누르면 문항 순서와 보기 순서가 앞 판과 다르다. [처음으로]를 누르면 시작 화면으로 간다.
 11. 문제를 풀다가 [그만두기]를 누르고 확인하면 시작 화면으로 간다.
@@ -465,7 +467,7 @@ check("연습 모드에서는 힌트를 쓸 수 없다", () => {
 ```js
 check("다시 풀기는 틀린 문항만, 처음 점수는 그대로", () => {
   const s = startGame("practice", "world-geography", seededRandom(6));
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < s.items.length; i++) {
     const it = s.items[s.index];
     answerCurrent(s, i < 6 ? it.answer : (it.answer + 1) % 4);
     nextQuestion(s);
@@ -482,7 +484,7 @@ check("다시 풀기는 틀린 문항만, 처음 점수는 그대로", () => {
 });
 check("틀린 문항이 없으면 다시 풀기 없음", () => {
   const s = startGame("practice", "science", seededRandom(1));
-  for (let i = 0; i < 10; i++) { answerCurrent(s, s.items[s.index].answer); nextQuestion(s); }
+  for (let i = 0; i < s.items.length; i++) { answerCurrent(s, s.items[s.index].answer); nextQuestion(s); }
   assertEqual(startRetry(s, seededRandom(1)), null, "다시 풀기");
 });
 ```
@@ -492,7 +494,7 @@ check("틀린 문항이 없으면 다시 풀기 없음", () => {
   - `MODES[mode].retry`이고 틀린 문항이 있으면 결과 화면에 [틀린 문제 다시 풀기]를 보여 준다. 누르면 `startRetry`로 푼다.
   - 다시 풀기 판의 결과 화면은 점수 대신 "n문항 중 m개 맞힘"을 보여 준다.
   - 또 틀리면 버튼을 다시 보여 준다. 모두 맞히면 "모두 맞혔습니다"를 표시하고 버튼을 숨긴다.
-  - [같은 카테고리 다시]는 다시 풀기 판에서도 같은 카테고리의 연습 모드 새 판(10문항)을 시작한다.
+  - [같은 카테고리 다시]는 다시 풀기 판에서도 같은 카테고리의 연습 모드 새 판(그 카테고리의 문항 전부)을 시작한다.
 - [ ] **Step 4: 점검 명령 실행** — Expected: `통과 18, 실패 0`
 - [ ] **Step 5: 커밋** — `feat: 틀린 문제 다시 풀기`
 
@@ -520,7 +522,7 @@ check("틀린 문항이 없으면 다시 풀기 없음", () => {
 10. [힌트 (오답 2개 지우기)]를 누르면 오답 2개가 흐려지고 취소선이 그어진다. 그 보기는 눌리지 않는다.
 11. 버튼이 "힌트 사용함"으로 바뀌고 다시 눌리지 않는다. 다음 문항에서는 다시 쓸 수 있다.
 12. 힌트를 쓰고 맞히면 점수가 0.5 오르고, 쓰지 않고 맞히면 1 오른다.
-13. 결과 점수가 "7.5 / 10"처럼 0.5 단위로 맞게 나온다.
+13. 결과 점수가 0.5 단위로 맞게 나온다(예: 한 판이 10문항이면 "7.5 / 10").
 
 **연습 모드와 다시 풀기**
 
@@ -611,9 +613,9 @@ check("기록 대상이 아닌 판은 저장하지 않는다", () => {
   const p = startGame("practice", "science", seededRandom(1));
   assertEqual(recordResult(p, st, new Date(2026, 9, 12, 14, 3, 0)), null, "연습");
   const h = startGame("hint", "science", seededRandom(1));
-  for (let i = 0; i < 10; i++) { answerCurrent(h, h.items[h.index].answer); nextQuestion(h); }
+  for (let i = 0; i < h.items.length; i++) { answerCurrent(h, h.items[h.index].answer); nextQuestion(h); }
   assertEqual(recordResult(h, st, new Date(2026, 9, 12, 14, 3, 0)), { rank: 1, available: true }, "힌트");
-  assertEqual(loadLeaderboard(st).board["hint:science"], [{ score: 10, date: "2026-10-12T14:03:00" }], "저장값");
+  assertEqual(loadLeaderboard(st).board["hint:science"], [{ score: h.items.length, date: "2026-10-12T14:03:00" }], "저장값");
 });
 ```
 
